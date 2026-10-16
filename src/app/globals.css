@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f9fafb;
   --foreground: #171717;
+  --surface: #ffffff;
 }
 
 @theme inline {
@@ -12,15 +13,128 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+html.dark {
+  --background: #141414;
+  --foreground: #f5f5f5;
+  --surface: #1f1f1f;
+  color-scheme: dark;
+}
+
+html.dark .bg-white {
+  background-color: var(--surface);
+}
+
+html.dark .bg-gray-50 {
+  background-color: var(--background);
+}
+
+html.dark .bg-gray-100 {
+  background-color: #262626;
+}
+
+html.dark .text-gray-800,
+html.dark .text-gray-700 {
+  color: #f5f5f5;
+}
+
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-gray-400 {
+  color: #a3a3a3;
+}
+
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300 {
+  border-color: #303030;
+}
+
+html.dark .hover\:bg-gray-50:hover {
+  background-color: #262626;
+}
+
+@keyframes login-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.login-blur {
+  position: absolute;
+  inset: -18%;
+  background:
+    radial-gradient(
+      circle at var(--mx, 50%) var(--my, 42%),
+      rgba(232, 176, 122, 0.95) 0%,
+      rgba(232, 176, 122, 0.28) 16%,
+      transparent 38%
+    ),
+    radial-gradient(circle at 18% 24%, #35597a 0%, transparent 42%),
+    radial-gradient(circle at 78% 76%, #243246 0%, transparent 46%),
+    #1c2430;
+  filter: blur(72px);
+}
+
+.login-rise {
+  animation: login-rise 0.85s ease both;
+}
+
+.login-d1 {
+  animation-delay: 120ms;
+}
+
+.login-d2 {
+  animation-delay: 240ms;
+}
+
+.login-d3 {
+  animation-delay: 380ms;
+}
+
+.login-d4 {
+  animation-delay: 180ms;
+}
+
+.login-d5 {
+  animation-delay: 500ms;
+}
+
+.login-d6 {
+  animation-delay: 680ms;
+}
+
+@keyframes login-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.login-fade-in {
+  animation: login-fade-in 0.45s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-rise,
+  .login-fade-in {
+    animation: none;
+  }
 }

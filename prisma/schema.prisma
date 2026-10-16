@@ -1,0 +1,228 @@
+// 个人任务与项目协作管理系统 - 数据库 Schema
+// 文档: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 任务状态流转：待办 → 进行中 → 已完成
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+// 任务优先级
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// 项目成员角色
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// 项目状态
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+// 团队：同一 team 的用户才能协作项目
+model Team {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  name      String   @db.VarChar(50)
+  code      String   @unique @db.VarChar(12)
+  ownerId   String   @db.VarChar(30)
+  createdAt DateTime @default(now())
+
+  owner    User      @relation("TeamOwner", fields: [ownerId], references: [id])
+  members  User[]    @relation("TeamMembers")
+  projects Project[]
+
+  @@index([ownerId])
+}
+
+// 用户
+model User {
+  id           String   @id @default(cuid()) @db.VarChar(30)
+  email        String   @unique @db.VarChar(255)
+  username     String   @unique @db.VarChar(50)
+  passwordHash String   @db.VarChar(255)
+  avatarUrl    String?  @db.VarChar(500)
+  teamId       String?  @db.VarChar(30)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  team          Team?           @relation("TeamMembers", fields: [teamId], references: [id])
+  ownedTeams    Team[]          @relation("TeamOwner")
+  ownedProjects Project[]       @relation("ProjectOwner")
+  memberships   ProjectMember[]
+  createdTasks  Task[]          @relation("TaskCreator")
+  assignedTasks Task[]          @relation("TaskAssignee")
+  comments      Comment[]
+  activities    ActivityLog[]
+  reports       Report[]
+  setting       UserSetting?
+
+  @@index([teamId])
+}
+
+// 个人偏好
+model UserSetting {
+  userId        String  @id @db.VarChar(30)
+  notifyDue     Boolean @default(true)
+  notifyComment Boolean @default(true)
+  weekStart     Int     @default(1)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 工作报告：本人可改删，同团队其他人只读
+model Report {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  authorId  String   @db.VarChar(30)
+  title     String   @db.VarChar(120)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId, createdAt])
+}
+
+// 项目
+model Project {
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  ownerId     String        @db.VarChar(30)
+  teamId      String?       @db.VarChar(30)
+  inviteCode  String        @unique @db.VarChar(20)
+  status      ProjectStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  owner    User            @relation("ProjectOwner", fields: [ownerId], references: [id])
+  team     Team?           @relation(fields: [teamId], references: [id])
+  members  ProjectMember[]
+  tasks    Task[]
+  labels   Label[]
+  activity ActivityLog[]
+
+  @@index([ownerId])
+  @@index([teamId])
+}
+
+// 项目成员（用户-项目 多对多，含角色）
+model ProjectMember {
+  id        String     @id @default(cuid()) @db.VarChar(30)
+  projectId String     @db.VarChar(30)
+  userId    String     @db.VarChar(30)
+  role      MemberRole @default(MEMBER)
+  createdAt DateTime   @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+// 任务
+model Task {
+  id          String       @id @default(cuid()) @db.VarChar(30)
+  projectId   String       @db.VarChar(30)
+  title       String       @db.VarChar(200)
+  description String?      @db.Text
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  assigneeId  String?      @db.VarChar(30)
+  creatorId   String       @db.VarChar(30)
+  // 看板列内排序位置（间隔取值，如 1000/2000，中间插入取中位数）
+  position    Float        @default(1000)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee   User?       @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator    User        @relation("TaskCreator", fields: [creatorId], references: [id])
+  labels     TaskLabel[]
+  comments   Comment[]
+  activities ActivityLog[]
+
+  @@index([projectId, status])
+  @@index([assigneeId])
+  @@index([dueDate])
+}
+
+// 标签（属于项目，用于任务分类与筛选）
+model Label {
+  id        String @id @default(cuid()) @db.VarChar(30)
+  projectId String @db.VarChar(30)
+  name      String @db.VarChar(50)
+  color     String @db.VarChar(20)
+
+  project Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   TaskLabel[]
+
+  @@unique([projectId, name])
+}
+
+// 任务-标签 多对多关联
+model TaskLabel {
+  taskId  String @db.VarChar(30)
+  labelId String @db.VarChar(30)
+
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, labelId])
+}
+
+// 任务评论
+model Comment {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  taskId    String   @db.VarChar(30)
+  authorId  String   @db.VarChar(30)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+// 任务/项目操作动态（用于任务动态流与项目时间线）
+model ActivityLog {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  projectId String   @db.VarChar(30)
+  taskId    String?  @db.VarChar(30)
+  userId    String   @db.VarChar(30)
+  // 操作类型，如 TASK_CREATED / STATUS_CHANGED / MEMBER_JOINED 等
+  type      String   @db.VarChar(50)
+  content   String   @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([taskId])
+}
