@@ -71,6 +71,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("session")) return;
+    url.searchParams.delete("session");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  useEffect(() => {
     for (const href of WORKSPACE_ROUTES) router.prefetch(href);
   }, [router]);
 

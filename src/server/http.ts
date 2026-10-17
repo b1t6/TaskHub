@@ -25,13 +25,6 @@ function sessionCookie(value: string, maxAge: number, secure: boolean): string {
   return parts.join("; ");
 }
 
-function publicOrigin(req: Request): string {
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  if (host) return `${proto.split(",")[0].trim()}://${host.split(",")[0].trim()}`;
-  return new URL(req.url).origin;
-}
-
 function applySession(res: NextResponse, token: string | null, req?: Request) {
   const value = token ?? "";
   const maxAge = token ? SESSION_MAX_AGE : 0;
@@ -50,15 +43,15 @@ function applySession(res: NextResponse, token: string | null, req?: Request) {
 }
 
 /**
- * EdgeOne 会丢掉云函数响应里的 Set-Cookie（含 200/302）。
- * 登录成功页用前端写入 Cookie，再跳转；不依赖 HttpOnly。
+ * EdgeOne 会丢掉云函数响应里的 Set-Cookie，且 x-forwarded-host 可能是内部截图域名。
+ * 只在当前站点用相对路径跳转，并把会话附在本次请求上。
  */
-export function htmlWithSession(req: Request, path: string, token: string) {
-  const target = new URL(path, publicOrigin(req)).toString();
-  const secure = isHttps(req);
+export function htmlWithSession(_req: Request, path: string, token: string) {
+  const secure = process.env.NODE_ENV === "production";
   const cookie =
     `session=${encodeURIComponent(token)}; Path=/; Max-Age=${SESSION_MAX_AGE}; SameSite=Lax` +
     (secure ? "; Secure" : "");
+  const target = `${path}?session=${encodeURIComponent(token)}`;
   const html = `<!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><title>登录成功</title></head>
