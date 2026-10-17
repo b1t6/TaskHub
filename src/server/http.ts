@@ -50,17 +50,33 @@ function applySession(res: NextResponse, token: string | null, req?: Request) {
 }
 
 /**
- * 不要用 302+Set-Cookie：EdgeOne 跟随时会丢掉登录 Cookie。
- * 先 200 写 Cookie，再让浏览器自己跳到目标页。
+ * EdgeOne 会丢掉云函数响应里的 Set-Cookie（含 200/302）。
+ * 登录成功页用前端写入 Cookie，再跳转；不依赖 HttpOnly。
  */
 export function htmlWithSession(req: Request, path: string, token: string) {
   const target = new URL(path, publicOrigin(req)).toString();
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${target}"><title>登录成功</title></head><body><script>location.replace(${JSON.stringify(target)})</script><p>登录成功，正在进入… <a href="${target}">点击继续</a></p></body></html>`;
-  const res = new NextResponse(html, {
+  const secure = isHttps(req);
+  const cookie =
+    `session=${encodeURIComponent(token)}; Path=/; Max-Age=${SESSION_MAX_AGE}; SameSite=Lax` +
+    (secure ? "; Secure" : "");
+  const html = `<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>登录成功</title></head>
+<body>
+<p>登录成功，正在进入…</p>
+<script>
+document.cookie = ${JSON.stringify(cookie)};
+location.replace(${JSON.stringify(target)});
+</script>
+</body>
+</html>`;
+  return new NextResponse(html, {
     status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "private, no-store",
+    },
   });
-  return applySession(res, token, req);
 }
 
 export function json<T>(data: T, status = 200, init?: { token?: string; clearSession?: boolean }) {

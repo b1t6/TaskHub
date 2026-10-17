@@ -179,8 +179,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     label: "退出登录",
                     onClick: async () => {
                       await api.logout();
+                      document.cookie = "session=; Path=/; Max-Age=0; SameSite=Lax";
                       queryClient.clear();
-                      router.replace("/login");
+                      window.location.assign("/login");
                     },
                   },
                 ],

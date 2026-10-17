@@ -92,9 +92,19 @@ function tokenFromHeader(raw: string | null): string | undefined {
   return undefined;
 }
 
+function normalizeToken(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 export async function currentUser(): Promise<User | null> {
-  const token =
-    (await cookies()).get(COOKIE)?.value ?? tokenFromHeader((await headers()).get("cookie"));
+  const fromStore = (await cookies()).get(COOKIE)?.value;
+  const fromHeader = tokenFromHeader((await headers()).get("cookie"));
+  const token = normalizeToken(fromStore) ?? normalizeToken(fromHeader);
   const userId = readSession(token);
   if (!userId) return null;
   const user = await db.user.findUnique({ where: { id: userId }, select: userSelect });
