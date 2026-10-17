@@ -2,7 +2,6 @@
 
 import { Button, Card, Form, Input, App as AntdApp } from "antd";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
 
@@ -14,7 +13,6 @@ interface RegisterForm {
 }
 
 export default function RegisterPage() {
-  const router = useRouter();
   const { message } = AntdApp.useApp();
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +25,7 @@ export default function RegisterPage() {
         password: values.password,
       });
       message.success("注册成功");
-      router.replace("/dashboard");
+      window.location.assign("/dashboard");
     } catch (e) {
       message.error(e instanceof Error ? e.message : "注册失败");
     } finally {

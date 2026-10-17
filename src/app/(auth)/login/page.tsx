@@ -2,7 +2,6 @@
 
 import { Button, Card, Form, Input, App as AntdApp } from "antd";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 
@@ -17,7 +16,6 @@ const DEMO = {
 };
 
 export default function LoginPage() {
-  const router = useRouter();
   const { message } = AntdApp.useApp();
   const pageRef = useRef<HTMLElement>(null);
   const [form] = Form.useForm<LoginForm>();
@@ -36,7 +34,8 @@ export default function LoginPage() {
     try {
       await api.login(values);
       message.success("登录成功");
-      router.replace("/dashboard");
+      // 整页进入，避免复用未登录时缓存的「跳回登录页」结果
+      window.location.assign("/dashboard");
     } catch (e) {
       message.error(e instanceof Error ? e.message : "登录失败");
     } finally {
