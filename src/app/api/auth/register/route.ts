@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, signSession, toUser } from "@/server/auth";
 import { HttpError } from "@/server/errors";
-import { fail, json, redirectWithSession } from "@/server/http";
+import { fail, htmlWithSession, json } from "@/server/http";
 import type { RegisterInput } from "@/types";
 
 async function readRegister(req: Request): Promise<RegisterInput & { form: boolean }> {
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       data: { email, username, passwordHash: hashPassword(password) },
     });
     const token = signSession(user.id);
-    if (body.form) return redirectWithSession(req, "/dashboard", token);
+    if (body.form) return htmlWithSession(req, "/dashboard", token);
     return json({ user: toUser(user), token }, 200, { token });
   } catch (error) {
     return fail(error);
