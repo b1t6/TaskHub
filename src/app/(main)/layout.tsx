@@ -1,4 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+
+export const dynamic = "force-dynamic";
 import AppShell from "@/components/layout/AppShell";
 import { getQueryClient } from "@/lib/get-query-client";
 import { queryKeys } from "@/lib/queries";

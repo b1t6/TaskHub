@@ -2,19 +2,28 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { HttpError } from "./errors";
 
+const SESSION_MAX_AGE = 14 * 24 * 60 * 60;
+
+function sessionCookie(value: string, maxAge: number): string {
+  return [
+    `session=${value}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${maxAge}`,
+    "Secure",
+  ].join("; ");
+}
+
 export function json<T>(data: T, status = 200, init?: { token?: string; clearSession?: boolean }) {
   const res = NextResponse.json(data, { status });
+  res.headers.set("Cache-Control", "no-store");
   if (init?.token) {
-    res.cookies.set("session", init.token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 14 * 24 * 60 * 60,
-      secure: process.env.NODE_ENV === "production",
-    });
+    // 同时写标准 Set-Cookie。EdgeOne 会丢掉 NextResponse.cookies，只保留响应头。
+    res.headers.append("Set-Cookie", sessionCookie(init.token, SESSION_MAX_AGE));
   }
   if (init?.clearSession) {
-    res.cookies.set("session", "", { httpOnly: true, path: "/", maxAge: 0 });
+    res.headers.append("Set-Cookie", sessionCookie("", 0));
   }
   return res;
 }
