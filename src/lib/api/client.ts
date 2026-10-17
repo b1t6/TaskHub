@@ -40,6 +40,7 @@ export interface ApiClient {
   listTeamProjects(): Promise<TeamProjectCard[]>;
   createProject(input: CreateProjectInput): Promise<Project>;
   getProject(projectId: string): Promise<ProjectDetail>;
+  deleteProject(projectId: string): Promise<void>;
   joinProject(input: JoinProjectInput): Promise<Project>;
   joinTeamProject(projectId: string): Promise<Project>;
   updateProjectStatus(projectId: string, status: ProjectStatus): Promise<Project>;

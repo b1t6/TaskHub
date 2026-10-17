@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRightOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input, App as AntdApp } from "antd";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -42,7 +43,9 @@ export default function LoginPage() {
   return (
     <main
       ref={pageRef}
-      className="relative flex min-h-screen cursor-pointer flex-col items-center justify-center overflow-hidden bg-[#1c2430] px-6 py-12"
+      className={`relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#1c2430] px-6 py-12 ${
+        phase === "intro" ? "cursor-pointer" : ""
+      }`}
       onPointerMove={(event) => {
         const page = pageRef.current;
         if (!page) return;
@@ -52,10 +55,15 @@ export default function LoginPage() {
       }}
       onClick={() => {
         if (phase === "intro") setPhase("to-login");
-        if (phase === "login") setPhase("to-intro");
       }}
     >
-      <div className="login-blur pointer-events-none" />
+      <div className="login-blur pointer-events-none" aria-hidden />
+      <div className="login-orbs pointer-events-none" aria-hidden>
+        <span className="login-orb login-orb-a" />
+        <span className="login-orb login-orb-b" />
+        <span className="login-orb login-orb-c" />
+        <span className="login-orb login-orb-d" />
+      </div>
 
       {(phase === "intro" || phase === "to-login") && (
       <section
@@ -63,21 +71,24 @@ export default function LoginPage() {
           phase === "to-login" ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
       >
-        <p className="login-rise text-sm tracking-widest text-white/60">个人独立网站项目</p>
-        <h1 className="login-rise login-d1 mt-4 text-3xl font-semibold">智慧任务协作平台</h1>
-        <p className="login-rise login-d2 mx-auto mt-5 max-w-xl text-sm leading-7 text-white/80">
+        <p className="login-rise text-sm tracking-widest text-white/60">个人独立实战项目</p>
+        <h1 className="login-rise login-d1 mt-4 text-3xl font-semibold">任务协作平台</h1>
+        <p className="login-rise login-d2 mx-auto mt-5 max-w-xl text-sm leading-7 text-white/90">
           前端采用 React 、TypeScript 与 Next.js，界面用 Tailwind CSS 和 Ant Design完成。
         </p>
-        <p className="login-rise login-d2 mx-auto mt-5 max-w-xl text-sm leading-7 text-white/80">
+        <p className="login-rise login-d2 mx-auto mt-5 max-w-xl text-sm leading-7 text-white/85">
           后端使用 Next.js API Routes 处理请求，页面只通过接口读写数据。
         </p>
         <p className="login-rise login-d2 mx-auto mt-5 max-w-xl text-sm leading-7 text-white/80">
-          数据库使用 TiDB Cloud，数据由 Prisma 连接并落在 MySQL 中。
+          数据库服务器采用 TiDB Cloud，数据由 Prisma 连接并落在 MySQL 中。
         </p>
-        <p className="login-rise login-d3 mx-auto mt-4 max-w-xl text-sm leading-7 text-white/65">
-          已完成工作台图表、项目任务流转、团队协作、成员分配与报告。独立跑通完整流程，登录后即可体验。
+        <p className="login-rise login-d3 mx-auto mt-4 max-w-xl text-sm leading-7 text-white/75">
+          从前后端分离、服务器搭建，再到网站部署上线，独立跑通完整流程，登录后即可体验。
         </p>
-        <p className="login-rise login-d6 mt-8 text-sm tracking-wide text-white/50">作者：b1t</p>
+        <div className="login-rise login-d6 mt-8 flex justify-center gap-8 text-sm tracking-wide text-white/60">
+          <p>作者：b1t</p>
+          <p>邮箱：2223811718@qq.com</p>
+        </div>
       </section>
       )}
 
@@ -88,7 +99,22 @@ export default function LoginPage() {
           }`}
         >
           <div className="login-fade-in" onClick={(event) => event.stopPropagation()}>
-          <Card className="shadow-md" title="登录">
+          <Card
+            className="shadow-md"
+            title={
+              <div className="flex items-center justify-between gap-3">
+                <span>登录</span>
+                <button
+                  type="button"
+                  aria-label="返回介绍"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+                  onClick={() => setPhase("to-intro")}
+                >
+                  <ArrowRightOutlined />
+                </button>
+              </div>
+            }
+          >
             <Form<LoginForm> form={form} layout="vertical" onFinish={onFinish} autoComplete="off">
               <Form.Item
                 name="email"

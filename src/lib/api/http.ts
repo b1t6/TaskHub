@@ -84,6 +84,7 @@ export const httpApi: ApiClient = {
   createProject: (input: CreateProjectInput) =>
     request<Project>("/projects", { method: "POST", body: JSON.stringify(input) }),
   getProject: (projectId) => request<ProjectDetail>(`/projects/${projectId}`),
+  deleteProject: (projectId) => request<void>(`/projects/${projectId}`, { method: "DELETE" }),
   joinProject: (input: JoinProjectInput) =>
     request<Project>("/projects/join", { method: "POST", body: JSON.stringify(input) }),
   joinTeamProject: (projectId) =>

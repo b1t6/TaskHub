@@ -183,6 +183,7 @@ export interface UpdateSettingsInput {
   notifyDue?: boolean;
   notifyComment?: boolean;
   weekStart?: number;
+  avatarUrl?: string | null;
 }
 
 export interface UpdateProjectInput {
@@ -232,6 +233,7 @@ export interface ReportItem {
 export interface UserSettings {
   username: string;
   email: string;
+  avatarUrl?: string | null;
   notifyDue: boolean;
   notifyComment: boolean;
   weekStart: number;

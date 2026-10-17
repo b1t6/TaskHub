@@ -91,6 +91,104 @@ html.dark .hover\:bg-gray-50:hover {
   filter: blur(72px);
 }
 
+.login-orbs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.login-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(56px);
+  opacity: 0.55;
+  will-change: transform, opacity;
+}
+
+.login-orb-a {
+  width: min(42vw, 420px);
+  height: min(42vw, 420px);
+  left: -8%;
+  top: 12%;
+  background: radial-gradient(circle, rgba(86, 148, 196, 0.85) 0%, transparent 68%);
+  animation: login-orb-drift-a 18s ease-in-out infinite;
+}
+
+.login-orb-b {
+  width: min(36vw, 360px);
+  height: min(36vw, 360px);
+  right: -6%;
+  top: 8%;
+  background: radial-gradient(circle, rgba(232, 176, 122, 0.7) 0%, transparent 70%);
+  animation: login-orb-drift-b 22s ease-in-out infinite;
+}
+
+.login-orb-c {
+  width: min(48vw, 480px);
+  height: min(48vw, 480px);
+  left: 28%;
+  bottom: -18%;
+  background: radial-gradient(circle, rgba(72, 122, 148, 0.75) 0%, transparent 72%);
+  animation: login-orb-drift-c 26s ease-in-out infinite;
+}
+
+.login-orb-d {
+  width: min(28vw, 280px);
+  height: min(28vw, 280px);
+  right: 18%;
+  bottom: 16%;
+  background: radial-gradient(circle, rgba(164, 196, 176, 0.55) 0%, transparent 68%);
+  animation: login-orb-drift-d 16s ease-in-out infinite;
+}
+
+@keyframes login-orb-drift-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translate(12%, 18%) scale(1.18);
+    opacity: 0.72;
+  }
+}
+
+@keyframes login-orb-drift-b {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(-16%, 22%) scale(1.12);
+    opacity: 0.68;
+  }
+}
+
+@keyframes login-orb-drift-c {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.38;
+  }
+  50% {
+    transform: translate(-10%, -14%) scale(1.2);
+    opacity: 0.65;
+  }
+}
+
+@keyframes login-orb-drift-d {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(0.95);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate(14%, -18%) scale(1.25);
+    opacity: 0.6;
+  }
+}
+
 .login-rise {
   animation: login-rise 0.85s ease both;
 }
@@ -132,9 +230,19 @@ html.dark .hover\:bg-gray-50:hover {
   animation: login-fade-in 0.45s ease both;
 }
 
+.project-nav .ant-menu-item-group-title {
+  padding-inline: 16px;
+}
+
+.project-nav .ant-menu-item-group-title > span {
+  display: flex;
+  width: 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-rise,
-  .login-fade-in {
+  .login-fade-in,
+  .login-orb {
     animation: none;
   }
 }

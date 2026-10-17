@@ -30,7 +30,9 @@ import { api } from "@/lib/api";
 import { prefetchProject, queryKeys } from "@/lib/queries";
 import { avatarColor } from "@/lib/utils";
 import CreateProjectModal from "@/components/project/CreateProjectModal";
+import ManageProjectsModal from "@/components/layout/ManageProjectsModal";
 import { useTheme } from "@/components/Providers";
+import { loadSidebarPref, saveSidebarPref, sortSidebarProjects, type SidebarProjectPref } from "@/lib/sidebar-projects";
 
 const { Sider, Header, Content } = Layout;
 
@@ -54,6 +56,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { mode, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [sidebarPref, setSidebarPref] = useState<SidebarProjectPref>({ order: [] });
 
   // 用户与项目列表由 layout 服务端注入；此处复用缓存，避免进页后再打一轮接口
   const meQuery = useQuery({
@@ -69,6 +73,50 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const user = meQuery.data ?? null;
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
+  const sidebarProjects = useMemo(
+    () => sortSidebarProjects(projects, sidebarPref),
+    [projects, sidebarPref]
+  );
+
+  useEffect(() => {
+    if (!user) return;
+    setSidebarPref(loadSidebarPref(user.id));
+  }, [user]);
+
+  const updateSidebarPref = (next: SidebarProjectPref) => {
+    if (!user) return;
+    setSidebarPref(next);
+    saveSidebarPref(user.id, next);
+  };
+
+  const reorderSidebarProject = (activeId: string, overId: string) => {
+    const order = sidebarProjects.map((project) => project.id);
+    const from = order.indexOf(activeId);
+    const to = order.indexOf(overId);
+    if (from < 0 || to < 0 || from === to) return;
+    const [item] = order.splice(from, 1);
+    order.splice(to, 0, item);
+    updateSidebarPref({ order });
+  };
+
+  const deleteSidebarProject = async (id: string) => {
+    try {
+      await api.deleteProject(id);
+      updateSidebarPref({ order: sidebarPref.order.filter((item) => item !== id) });
+      queryClient.setQueryData(queryKeys.projects, (prev: typeof projects | undefined) =>
+        (prev ?? []).filter((project) => project.id !== id)
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.teamProjects });
+      message.success("项目已删除");
+      if (pathname === `/projects/${id}` || pathname.startsWith(`/projects/${id}/`)) {
+        router.replace("/dashboard");
+      }
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "删除失败");
+      throw error;
+    }
+  };
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -85,11 +133,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   useEffect(() => {
-    if (!user || projects.length === 0) return;
-    for (const project of projects) {
+    if (!user || sidebarProjects.length === 0) return;
+    for (const project of sidebarProjects) {
       router.prefetch(`/projects/${project.id}`);
     }
-  }, [router, user, projects]);
+  }, [router, user, sidebarProjects]);
 
   const menuItems = useMemo(
     () => [
@@ -108,8 +156,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {
         key: "projects",
         type: "group" as const,
-        label: "我的项目",
-        children: projects.map((project) => ({
+        label: (
+          <span className="flex w-full items-center justify-between gap-2">
+            <span>我的项目</span>
+            <button
+              type="button"
+              className="text-xs font-normal text-blue-500 hover:text-blue-600"
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setManageOpen(true);
+              }}
+            >
+              管理
+            </button>
+          </span>
+        ),
+        children: sidebarProjects.map((project) => ({
           key: `/projects/${project.id}`,
           icon: <FolderOutlined />,
           label: (
@@ -118,7 +182,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         })),
       },
     ],
-    [projects, queryClient]
+    [sidebarProjects, queryClient]
   );
 
   if (!user) {
@@ -144,6 +208,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <span className="text-xl font-bold text-blue-600">TaskHub</span>
         </div>
         <Menu
+          className="project-nav"
           mode="inline"
           selectedKeys={[selectedKey(pathname)]}
           items={menuItems}
@@ -198,7 +263,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               }}
             >
               <span className="flex cursor-pointer items-center gap-2">
-                <Avatar style={{ backgroundColor: avatarColor(user.id) }}>
+                <Avatar src={user.avatarUrl || undefined} style={{ backgroundColor: avatarColor(user.id) }}>
                   {user.username.slice(0, 1)}
                 </Avatar>
                 {user.username}
@@ -208,6 +273,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Header>
         <Content style={{ background: "var(--background)" }}>{children}</Content>
       </Layout>
+      <ManageProjectsModal
+        open={manageOpen}
+        projects={sidebarProjects}
+        onClose={() => setManageOpen(false)}
+        onReorder={reorderSidebarProject}
+        onDelete={deleteSidebarProject}
+      />
       <CreateProjectModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}

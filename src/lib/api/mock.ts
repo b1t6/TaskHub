@@ -168,6 +168,17 @@ export const mockApi: ApiClient = {
     };
   },
 
+  async deleteProject(projectId: string): Promise<void> {
+    const user = requireUser();
+    const role = store.myRole(projectId, user.id);
+    if (role !== "OWNER") throw new Error("仅项目所有者可以删除项目");
+    store.projects = store.projects.filter((project) => project.id !== projectId);
+    store.memberships = store.memberships.filter((item) => item.projectId !== projectId);
+    store.labels = store.labels.filter((item) => item.projectId !== projectId);
+    store.tasks = store.tasks.filter((task) => task.projectId !== projectId);
+    store.activities = store.activities.filter((item) => item.projectId !== projectId);
+  },
+
   async joinProject(input: JoinProjectInput): Promise<Project> {
     const user = requireUser();
     const project = store.projects.find(
@@ -473,6 +484,7 @@ export const mockApi: ApiClient = {
     return {
       username: user.username,
       email: user.email,
+      avatarUrl: user.avatarUrl ?? null,
       notifyDue: true,
       notifyComment: true,
       weekStart: 1,

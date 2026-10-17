@@ -338,6 +338,12 @@ export async function updateProjectStatus(
   return toProject(updated, user.id);
 }
 
+export async function deleteProject(user: User, projectId: string) {
+  const { role } = await requireMember(projectId, user);
+  if (role !== "OWNER") throw new HttpError(403, "仅项目所有者可以删除项目");
+  await db.project.delete({ where: { id: projectId } });
+}
+
 export async function listMembers(user: User, projectId: string): Promise<Member[]> {
   const detail = await getProject(user, projectId);
   return detail.members;
