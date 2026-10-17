@@ -3,6 +3,7 @@
 import { Card, Progress, Statistic } from "antd";
 import { FireOutlined } from "@ant-design/icons";
 import type { ReactNode } from "react";
+import { useTheme } from "@/components/Providers";
 import type { ProjectStats } from "@/types";
 
 export type StatKey = "all" | "TODO" | "IN_PROGRESS" | "DONE" | "overdue";
@@ -59,6 +60,9 @@ export default function ProjectStatFilter({
   active: StatKey;
   onChange: (key: StatKey) => void;
 }) {
+  const { mode } = useTheme();
+  const dark = mode === "dark";
+
   return (
     <div className="mb-4 flex flex-wrap items-stretch gap-4">
       <Card size="small" className="w-44 shrink-0">
@@ -91,19 +95,25 @@ export default function ProjectStatFilter({
                 onClick={() => onChange(item.key)}
                 className={`rounded-lg px-3 py-2 text-left transition ${
                   selected
-                    ? "bg-blue-50 ring-2 ring-blue-400"
-                    : "hover:bg-gray-50"
+                    ? dark
+                      ? "bg-blue-500/20 ring-2 ring-blue-400"
+                      : "bg-blue-50 ring-2 ring-blue-400"
+                    : dark
+                      ? "hover:bg-white/5"
+                      : "hover:bg-gray-50"
                 }`}
               >
                 <Statistic
                   title={item.title}
                   value={value}
                   valueStyle={{
-                    color: selected ? "#1677ff" : valueColor,
+                    color: selected ? (dark ? "#69b1ff" : "#1677ff") : valueColor,
                     fontSize: 24,
                   }}
                 />
-                <div className="mt-1 text-xs text-gray-400">
+                <div
+                  className={`mt-1 text-xs ${dark ? "text-neutral-400" : "text-gray-400"}`}
+                >
                   {selected ? "当前列表" : "点击查看列表"}
                 </div>
               </button>

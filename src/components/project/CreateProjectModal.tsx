@@ -1,9 +1,10 @@
 "use client";
 
 import { Form, Input, Modal, App as AntdApp } from "antd";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { notifyProjectsChanged } from "@/lib/utils";
+import { queryKeys } from "@/lib/queries";
 
 interface CreateProjectForm {
   name: string;
@@ -21,19 +22,26 @@ export default function CreateProjectModal({
   onCreated: () => void;
 }) {
   const { message } = AntdApp.useApp();
+  const queryClient = useQueryClient();
   const [form] = Form.useForm<CreateProjectForm>();
   const [loading, setLoading] = useState(false);
+
+  const createProject = useMutation({
+    mutationFn: (values: CreateProjectForm) => api.createProject(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      queryClient.invalidateQueries({ queryKey: queryKeys.teamProjects });
+      form.resetFields();
+      onCreated();
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : "创建失败"),
+  });
 
   const handleOk = async () => {
     const values = await form.validateFields();
     setLoading(true);
     try {
-      await api.createProject(values);
-      notifyProjectsChanged();
-      onCreated();
-      form.resetFields();
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "创建失败");
+      await createProject.mutateAsync(values);
     } finally {
       setLoading(false);
     }

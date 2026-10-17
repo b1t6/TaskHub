@@ -1,10 +1,11 @@
 "use client";
 
 import { Avatar, Button, Drawer, Popconfirm, Select, Tag, App as AntdApp } from "antd";
-import { useCallback, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/queries";
 import { avatarColor } from "@/lib/utils";
-import type { Member, MemberRole, ProjectDetail } from "@/types";
+import type { MemberRole, ProjectDetail } from "@/types";
 
 const ROLE_LABEL: Record<MemberRole, string> = {
   OWNER: "所有者",
@@ -24,52 +25,48 @@ export default function MemberDrawer({
   onChanged: () => void;
 }) {
   const { message } = AntdApp.useApp();
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const projectId = project?.id;
 
-  const load = useCallback(async () => {
-    if (!project) return;
-    setLoading(true);
-    try {
-      setMembers(await api.listMembers(project.id));
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "加载成员失败");
-    } finally {
-      setLoading(false);
-    }
-  }, [project, message]);
+  const membersQuery = useQuery({
+    queryKey: queryKeys.members(projectId ?? ""),
+    queryFn: () => api.listMembers(projectId!),
+    enabled: open && Boolean(projectId),
+  });
+  const members = membersQuery.data ?? [];
 
-  useEffect(() => {
-    if (open) load();
-  }, [open, load]);
+  const updateRole = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: MemberRole }) =>
+      api.updateMemberRole(projectId!, userId, role),
+    onSuccess: () => {
+      message.success("角色已更新");
+      queryClient.invalidateQueries({ queryKey: queryKeys.members(projectId!) });
+      onChanged();
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : "更新失败"),
+  });
+
+  const removeMember = useMutation({
+    mutationFn: (userId: string) => api.removeMember(projectId!, userId),
+    onSuccess: () => {
+      message.success("已移除成员");
+      queryClient.invalidateQueries({ queryKey: queryKeys.members(projectId!) });
+      onChanged();
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : "移除失败"),
+  });
 
   const canManage = project?.myRole === "OWNER" || project?.myRole === "ADMIN";
   const isOwner = project?.myRole === "OWNER";
 
-  const handleRoleChange = async (userId: string, role: MemberRole) => {
-    try {
-      await api.updateMemberRole(project!.id, userId, role);
-      message.success("角色已更新");
-      load();
-      onChanged();
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "更新失败");
-    }
-  };
-
-  const handleRemove = async (userId: string) => {
-    try {
-      await api.removeMember(project!.id, userId);
-      message.success("已移除成员");
-      load();
-      onChanged();
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "移除失败");
-    }
-  };
-
   return (
-    <Drawer title="项目成员" open={open} onClose={onClose} width={360} loading={loading}>
+    <Drawer
+      title="项目成员"
+      open={open}
+      onClose={onClose}
+      width={360}
+      loading={membersQuery.isLoading && !membersQuery.data}
+    >
       <ul className="divide-y divide-gray-100">
         {members.map((member) => (
           <li key={member.id} className="flex items-center gap-3 py-3">
@@ -86,7 +83,7 @@ export default function MemberDrawer({
                 value={member.role}
                 size="small"
                 style={{ width: 88 }}
-                onChange={(role) => handleRoleChange(member.id, role)}
+                onChange={(role) => updateRole.mutate({ userId: member.id, role })}
                 options={[
                   { value: "ADMIN", label: ROLE_LABEL.ADMIN },
                   { value: "MEMBER", label: ROLE_LABEL.MEMBER },
@@ -94,7 +91,10 @@ export default function MemberDrawer({
               />
             )}
             {canManage && member.role !== "OWNER" && (
-              <Popconfirm title="确定移除该成员？" onConfirm={() => handleRemove(member.id)}>
+              <Popconfirm
+                title="确定移除该成员？"
+                onConfirm={() => removeMember.mutate(member.id)}
+              >
                 <Button type="link" danger size="small" className="px-0">
                   移除
                 </Button>

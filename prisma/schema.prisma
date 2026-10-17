@@ -7,6 +7,8 @@ generator client {
 
 datasource db {
   provider = "mysql"
+  // TiDB Cloud 示例：
+  // mysql://USER:PASSWORD@GATEWAY_HOST:4000/DB?sslaccept=strict
   url      = env("DATABASE_URL")
 }
 

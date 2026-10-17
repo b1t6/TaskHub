@@ -12,9 +12,11 @@ import {
   App as AntdApp,
 } from "antd";
 import { SendOutlined } from "@ant-design/icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/queries";
 import { avatarColor, formatDateTime } from "@/lib/utils";
 import { PRIORITY_META, STATUS_META, StatusTag } from "@/components/ui/tags";
 import {
@@ -22,7 +24,7 @@ import {
   isAdjacentStatus,
   statusTransitionMessage,
 } from "@/lib/task-status";
-import type { Comment, ProjectDetail, Task, TaskPriority, TaskStatus } from "@/types";
+import type { ProjectDetail, Task, TaskPriority, TaskStatus } from "@/types";
 
 interface TaskEditValues {
   title: string;
@@ -49,19 +51,16 @@ export default function TaskDetailDrawer({
   onChanged: () => void;
 }) {
   const { message } = AntdApp.useApp();
+  const queryClient = useQueryClient();
   const [form] = Form.useForm<TaskEditValues>();
-  const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  const loadComments = useCallback(async () => {
-    if (!task) return;
-    try {
-      setComments(await api.listComments(task.id));
-    } catch {
-      // 评论加载失败不阻塞详情
-    }
-  }, [task]);
+  const commentsQuery = useQuery({
+    queryKey: queryKeys.comments(task?.id ?? ""),
+    queryFn: () => api.listComments(task!.id),
+    enabled: open && Boolean(task?.id),
+  });
+  const comments = commentsQuery.data ?? [];
 
   useEffect(() => {
     if (open && task) {
@@ -74,9 +73,48 @@ export default function TaskDetailDrawer({
         assigneeId: task.assignee?.id,
         labelIds: task.labels.map((l) => l.id),
       });
-      loadComments();
+      setCommentText("");
     }
-  }, [open, task, form, loadComments]);
+  }, [open, task, form]);
+
+  const saveMutation = useMutation({
+    mutationFn: (values: TaskEditValues) =>
+      api.updateTask(task!.id, {
+        title: values.title,
+        description: values.description ?? null,
+        status: values.status,
+        priority: values.priority,
+        dueDate: values.dueDate ? values.dueDate.toISOString() : null,
+        assigneeId: values.assigneeId ?? null,
+        labelIds: values.labelIds ?? [],
+      }),
+    onSuccess: () => {
+      message.success("已保存");
+      onChanged();
+      onClose();
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : "保存失败"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteTask(task!.id),
+    onSuccess: () => {
+      message.success("任务已删除");
+      onChanged();
+      onClose();
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : "删除失败"),
+  });
+
+  const commentMutation = useMutation({
+    mutationFn: (content: string) => api.addComment({ taskId: task!.id, content }),
+    onSuccess: () => {
+      setCommentText("");
+      queryClient.invalidateQueries({ queryKey: queryKeys.comments(task!.id) });
+      onChanged();
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : "评论失败"),
+  });
 
   const handleSave = async () => {
     if (!task) return;
@@ -85,50 +123,13 @@ export default function TaskDetailDrawer({
       message.warning(statusTransitionMessage(task.status, values.status));
       return;
     }
-    setSaving(true);
-    try {
-      await api.updateTask(task.id, {
-        title: values.title,
-        description: values.description ?? null,
-        status: values.status,
-        priority: values.priority,
-        dueDate: values.dueDate ? values.dueDate.toISOString() : null,
-        assigneeId: values.assigneeId ?? null,
-        labelIds: values.labelIds ?? [],
-      });
-      message.success("已保存");
-      onChanged();
-      onClose();
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
+    saveMutation.mutate(values);
   };
 
-  const handleDelete = async () => {
-    if (!task) return;
-    try {
-      await api.deleteTask(task.id);
-      message.success("任务已删除");
-      onChanged();
-      onClose();
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "删除失败");
-    }
-  };
-
-  const handleSendComment = async () => {
+  const handleSendComment = () => {
     const content = commentText.trim();
     if (!task || !content) return;
-    try {
-      await api.addComment({ taskId: task.id, content });
-      setCommentText("");
-      loadComments();
-      onChanged();
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "评论失败");
-    }
+    commentMutation.mutate(content);
   };
 
   return (
@@ -141,10 +142,12 @@ export default function TaskDetailDrawer({
       footer={
         task && (
           <div className="flex justify-between">
-            <Popconfirm title="确定删除该任务？" onConfirm={handleDelete}>
-              <Button danger>删除任务</Button>
+            <Popconfirm title="确定删除该任务？" onConfirm={() => deleteMutation.mutate()}>
+              <Button danger loading={deleteMutation.isPending}>
+                删除任务
+              </Button>
             </Popconfirm>
-            <Button type="primary" loading={saving} onClick={handleSave}>
+            <Button type="primary" loading={saveMutation.isPending} onClick={handleSave}>
               保存修改
             </Button>
           </div>
@@ -182,13 +185,19 @@ export default function TaskDetailDrawer({
                 />
               </Form.Item>
               <Form.Item name="dueDate" label="截止日期">
-                <DatePicker className="w-full" disabledDate={(d) => d.isBefore(dayjs().startOf("day"))} />
+                <DatePicker
+                  className="w-full"
+                  disabledDate={(d) => d.isBefore(dayjs().startOf("day"))}
+                />
               </Form.Item>
               <Form.Item name="assigneeId" label="负责人">
                 <Select
                   allowClear
                   placeholder="未分配"
-                  options={(project?.members ?? []).map((m) => ({ value: m.id, label: m.username }))}
+                  options={(project?.members ?? []).map((m) => ({
+                    value: m.id,
+                    label: m.username,
+                  }))}
                 />
               </Form.Item>
             </div>
@@ -209,7 +218,9 @@ export default function TaskDetailDrawer({
             </span>
           </div>
           <div className="mb-2 max-h-64 space-y-3 overflow-y-auto rounded-md bg-gray-50 p-3">
-            {comments.length === 0 && <div className="text-center text-sm text-gray-400">暂无评论</div>}
+            {comments.length === 0 && (
+              <div className="text-center text-sm text-gray-400">暂无评论</div>
+            )}
             {comments.map((c) => (
               <div key={c.id} className="flex gap-2">
                 <Avatar size={28} style={{ backgroundColor: avatarColor(c.author.id), fontSize: 13 }}>
@@ -231,7 +242,13 @@ export default function TaskDetailDrawer({
               onPressEnter={handleSendComment}
               placeholder="写下评论，回车发送"
             />
-            <Button type="primary" icon={<SendOutlined />} onClick={handleSendComment} disabled={!commentText.trim()} />
+            <Button
+              type="primary"
+              icon={<SendOutlined />}
+              onClick={handleSendComment}
+              loading={commentMutation.isPending}
+              disabled={!commentText.trim()}
+            />
           </div>
         </>
       )}

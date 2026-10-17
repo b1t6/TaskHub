@@ -12,8 +12,8 @@ interface LoginForm {
 }
 
 const DEMO = {
-  email: "2223811718@qq.com",
-  password: "123456",
+  email: "b1t@taskhub.local",
+  password: "demo123456",
 };
 
 export default function LoginPage() {
@@ -68,13 +68,16 @@ export default function LoginPage() {
           phase === "to-login" ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
       >
-        <p className="login-rise text-sm tracking-widest text-white/60">个人独立项目</p>
+        <p className="login-rise text-sm tracking-widest text-white/60">个人独立网站项目</p>
         <h1 className="login-rise login-d1 mt-4 text-3xl font-semibold">智慧任务协作平台</h1>
         <p className="login-rise login-d2 mx-auto mt-5 max-w-xl text-sm leading-7 text-white/80">
           前端采用 React 、TypeScript 与 Next.js，界面用 Tailwind CSS 和 Ant Design完成。
         </p>
         <p className="login-rise login-d2 mx-auto mt-5 max-w-xl text-sm leading-7 text-white/80">
-          后端是独立的接口层，页面只通过接口读写数据，数据由 Prisma 落在 MySQL 中。
+          后端使用 Next.js API Routes 处理请求，页面只通过接口读写数据。
+        </p>
+        <p className="login-rise login-d2 mx-auto mt-5 max-w-xl text-sm leading-7 text-white/80">
+          数据库使用 TiDB Cloud，数据由 Prisma 连接并落在 MySQL 中。
         </p>
         <p className="login-rise login-d3 mx-auto mt-4 max-w-xl text-sm leading-7 text-white/65">
           已完成工作台图表、项目任务流转、团队协作、成员分配与报告。独立跑通完整流程，登录后即可体验。

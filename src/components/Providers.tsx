@@ -1,6 +1,7 @@
 "use client";
 
 import "@ant-design/v5-patch-for-react-19";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider, theme, App as AntdApp } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import {
@@ -10,6 +11,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { getQueryClient } from "@/lib/get-query-client";
 
 export type ThemeMode = "light" | "dark";
 
@@ -37,6 +39,7 @@ export default function Providers({
 }: {
   children: React.ReactNode;
 }) {
+  const [queryClient] = useState(() => getQueryClient());
   const [mode, setMode] = useState<ThemeMode>("light");
 
   useEffect(() => {
@@ -56,19 +59,21 @@ export default function Providers({
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ mode, toggleTheme }}>
-      <ConfigProvider
-        locale={zhCN}
-        theme={{
-          algorithm: mode === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
-          token: {
-            colorPrimary: "#2563eb",
-            borderRadius: 8,
-          },
-        }}
-      >
-        <AntdApp>{children}</AntdApp>
-      </ConfigProvider>
-    </ThemeContext.Provider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeContext.Provider value={{ mode, toggleTheme }}>
+        <ConfigProvider
+          locale={zhCN}
+          theme={{
+            algorithm: mode === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
+            token: {
+              colorPrimary: "#2563eb",
+              borderRadius: 8,
+            },
+          }}
+        >
+          <AntdApp>{children}</AntdApp>
+        </ConfigProvider>
+      </ThemeContext.Provider>
+    </QueryClientProvider>
   );
 }

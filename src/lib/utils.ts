@@ -27,11 +27,3 @@ export function avatarColor(seed: string): string {
   for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
-
-// 触发全局项目数据变更事件（侧边栏与页面之间解耦刷新）
-export const PROJECTS_CHANGED_EVENT = "projects:changed";
-export function notifyProjectsChanged() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(PROJECTS_CHANGED_EVENT));
-  }
-}

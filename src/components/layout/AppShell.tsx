@@ -23,15 +23,18 @@ import {
   SunOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { avatarColor, notifyProjectsChanged, PROJECTS_CHANGED_EVENT } from "@/lib/utils";
-import type { Project, User } from "@/types";
+import { prefetchProject, queryKeys } from "@/lib/queries";
+import { avatarColor } from "@/lib/utils";
 import CreateProjectModal from "@/components/project/CreateProjectModal";
 import { useTheme } from "@/components/Providers";
 
 const { Sider, Header, Content } = Layout;
+
+const WORKSPACE_ROUTES = ["/dashboard", "/groups", "/team", "/reports", "/settings"];
 
 function selectedKey(pathname: string): string {
   if (pathname.startsWith("/projects/")) return pathname;
@@ -46,40 +49,37 @@ function selectedKey(pathname: string): string {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const { message } = AntdApp.useApp();
   const { mode, toggleTheme } = useTheme();
-  const [user, setUser] = useState<User | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const loadProjects = useCallback(async () => {
-    try {
-      setProjects(await api.listProjects());
-    } catch {
-      // 静默失败
+  // 用户与项目列表由 layout 服务端注入；此处复用缓存，避免进页后再打一轮接口
+  const meQuery = useQuery({
+    queryKey: queryKeys.me,
+    queryFn: () => api.me(),
+    retry: false,
+  });
+  const projectsQuery = useQuery({
+    queryKey: queryKeys.projects,
+    queryFn: () => api.listProjects(),
+    enabled: Boolean(meQuery.data),
+  });
+
+  const user = meQuery.data ?? null;
+  const projects = projectsQuery.data ?? [];
+
+  useEffect(() => {
+    for (const href of WORKSPACE_ROUTES) router.prefetch(href);
+  }, [router]);
+
+  useEffect(() => {
+    if (!user || projects.length === 0) return;
+    for (const project of projects) {
+      router.prefetch(`/projects/${project.id}`);
     }
-  }, []);
-
-  useEffect(() => {
-    api
-      .me()
-      .then((u) => {
-        if (!u) {
-          router.replace("/login");
-          return;
-        }
-        setUser(u);
-        loadProjects();
-      })
-      .catch(() => router.replace("/login"));
-  }, [router, loadProjects]);
-
-  useEffect(() => {
-    const handler = () => loadProjects();
-    window.addEventListener(PROJECTS_CHANGED_EVENT, handler);
-    return () => window.removeEventListener(PROJECTS_CHANGED_EVENT, handler);
-  }, [loadProjects]);
+  }, [router, user, projects]);
 
   const menuItems = useMemo(
     () => [
@@ -99,14 +99,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         key: "projects",
         type: "group" as const,
         label: "我的项目",
-        children: projects.map((p) => ({
-          key: `/projects/${p.id}`,
+        children: projects.map((project) => ({
+          key: `/projects/${project.id}`,
           icon: <FolderOutlined />,
-          label: p.name,
+          label: (
+            <span onMouseEnter={() => prefetchProject(queryClient, project.id)}>{project.name}</span>
+          ),
         })),
       },
     ],
-    [projects]
+    [projects, queryClient]
   );
 
   if (!user) {
@@ -169,28 +171,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               />
             </Tooltip>
             <Dropdown
-            menu={{
-              items: [
-                {
-                  key: "logout",
-                  icon: <LogoutOutlined />,
-                  label: "退出登录",
-                  onClick: async () => {
-                    await api.logout();
-                    notifyProjectsChanged();
-                    router.replace("/login");
+              menu={{
+                items: [
+                  {
+                    key: "logout",
+                    icon: <LogoutOutlined />,
+                    label: "退出登录",
+                    onClick: async () => {
+                      await api.logout();
+                      queryClient.clear();
+                      router.replace("/login");
+                    },
                   },
-                },
-              ],
-            }}
-          >
-            <span className="flex cursor-pointer items-center gap-2">
-              <Avatar style={{ backgroundColor: avatarColor(user.id) }}>
-                {user.username.slice(0, 1)}
-              </Avatar>
-              {user.username}
-            </span>
-          </Dropdown>
+                ],
+              }}
+            >
+              <span className="flex cursor-pointer items-center gap-2">
+                <Avatar style={{ backgroundColor: avatarColor(user.id) }}>
+                  {user.username.slice(0, 1)}
+                </Avatar>
+                {user.username}
+              </span>
+            </Dropdown>
           </div>
         </Header>
         <Content style={{ background: "var(--background)" }}>{children}</Content>
@@ -200,7 +202,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          loadProjects();
           message.success("项目创建成功");
         }}
       />

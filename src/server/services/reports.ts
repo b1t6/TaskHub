@@ -49,7 +49,7 @@ export async function listReports(
     return rows.map((row) => toReport(row, user.id));
   }
 
-  if (!user.teamId) throw new HttpError(400, "请先加入团队后再查看团队报告");
+  if (!user.teamId) return [];
   const rows = await db.report.findMany({
     where: { author: { teamId: user.teamId } },
     include: { author: true },

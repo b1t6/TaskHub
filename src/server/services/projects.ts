@@ -17,21 +17,35 @@ const STATUS_LABEL = {
   DONE: "已完成",
 } as const;
 
-export async function taskStats(projectId: string) {
+function emptyStats() {
+  return { total: 0, todo: 0, inProgress: 0, done: 0, overdue: 0 };
+}
+
+export async function taskStatsMap(projectIds: string[]) {
+  const map = new Map(projectIds.map((id) => [id, emptyStats()]));
+  if (projectIds.length === 0) return map;
   const tasks = await db.task.findMany({
-    where: { projectId },
-    select: { status: true, dueDate: true },
+    where: { projectId: { in: projectIds } },
+    select: { projectId: true, status: true, dueDate: true },
   });
   const now = new Date();
-  return {
-    total: tasks.length,
-    todo: tasks.filter((t) => t.status === "TODO").length,
-    inProgress: tasks.filter((t) => t.status === "IN_PROGRESS").length,
-    done: tasks.filter((t) => t.status === "DONE").length,
-    overdue: tasks.filter(
-      (t) => t.status !== "DONE" && t.dueDate !== null && t.dueDate < now
-    ).length,
-  };
+  for (const task of tasks) {
+    const stats = map.get(task.projectId);
+    if (!stats) continue;
+    stats.total += 1;
+    if (task.status === "TODO") stats.todo += 1;
+    else if (task.status === "IN_PROGRESS") stats.inProgress += 1;
+    else if (task.status === "DONE") stats.done += 1;
+    if (task.status !== "DONE" && task.dueDate !== null && task.dueDate < now) {
+      stats.overdue += 1;
+    }
+  }
+  return map;
+}
+
+export async function taskStats(projectId: string) {
+  const map = await taskStatsMap([projectId]);
+  return map.get(projectId) ?? emptyStats();
 }
 
 async function inviteCode(): Promise<string> {
@@ -97,9 +111,28 @@ async function toProject(
 export async function listProjects(user: User): Promise<Project[]> {
   const rows = await db.project.findMany({
     where: { members: { some: { userId: user.id } } },
+    include: {
+      team: { select: { name: true } },
+      members: { where: { userId: user.id }, select: { role: true } },
+      _count: { select: { members: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
-  return Promise.all(rows.map((row) => toProject(row, user.id)));
+  const stats = await taskStatsMap(rows.map((row) => row.id));
+  return rows.map((project) => ({
+    id: project.id,
+    name: project.name,
+    description: project.description,
+    ownerId: project.ownerId,
+    teamId: project.teamId,
+    teamName: project.team?.name ?? null,
+    inviteCode: project.inviteCode,
+    status: project.status,
+    createdAt: project.createdAt.toISOString(),
+    myRole: project.members[0]?.role ?? "MEMBER",
+    memberCount: project._count.members,
+    taskStats: stats.get(project.id) ?? emptyStats(),
+  }));
 }
 
 /** 项目组：登录用户可查看所有已归属团队的项目与进度，不要求自己已加入团队 */
@@ -122,31 +155,30 @@ export async function listTeamProjects(user: User): Promise<TeamProjectCard[]> {
     },
     orderBy: { updatedAt: "desc" },
   });
-  return Promise.all(
-    rows.map(async (row) => {
-      const joined = row.members.length > 0;
-      const teamId = row.teamId as string;
-      return {
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        status: row.status,
-        teamId,
-        teamName: row.team?.name ?? "未命名团队",
-        owner: {
-          id: row.owner.id,
-          email: row.owner.email,
-          username: row.owner.username,
-          avatarUrl: row.owner.avatarUrl,
-          teamId: row.owner.teamId,
-        },
-        memberCount: row._count.members,
-        taskStats: await taskStats(row.id),
-        joined,
-        canJoin: !joined && Boolean(user.teamId) && user.teamId === teamId,
-      };
-    })
-  );
+  const stats = await taskStatsMap(rows.map((row) => row.id));
+  return rows.map((row) => {
+    const joined = row.members.length > 0;
+    const teamId = row.teamId as string;
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      status: row.status,
+      teamId,
+      teamName: row.team?.name ?? "未命名团队",
+      owner: {
+        id: row.owner.id,
+        email: row.owner.email,
+        username: row.owner.username,
+        avatarUrl: row.owner.avatarUrl,
+        teamId: row.owner.teamId,
+      },
+      memberCount: row._count.members,
+      taskStats: stats.get(row.id) ?? emptyStats(),
+      joined,
+      canJoin: !joined && Boolean(user.teamId) && user.teamId === teamId,
+    };
+  });
 }
 
 export async function createProject(user: User, input: CreateProjectInput): Promise<Project> {

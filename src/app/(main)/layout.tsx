@@ -1,40 +1,28 @@
-"use client";
-
-import { Spin } from "antd";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import AppShell from "@/components/layout/AppShell";
+import { getQueryClient } from "@/lib/get-query-client";
+import { queryKeys } from "@/lib/queries";
+import { requirePageUser } from "@/server/session";
+import { listProjects } from "@/server/services/projects";
 
-// 主应用布局：登录校验 + 应用外壳
-export default function MainLayout({
+// 主布局：服务端校验登录，并预取壳层数据（用户 + 项目列表）
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const user = await requirePageUser();
+  const queryClient = getQueryClient();
 
-  useEffect(() => {
-    api
-      .me()
-      .then((user) => {
-        if (!user) {
-          router.replace("/login");
-          return;
-        }
-        setReady(true);
-      })
-      .catch(() => router.replace("/login"));
-  }, [router]);
+  queryClient.setQueryData(queryKeys.me, user);
+  await queryClient.prefetchQuery({
+    queryKey: queryKeys.projects,
+    queryFn: () => listProjects(user),
+  });
 
-  if (!ready) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Spin size="large" />
-      </div>
-    );
-  }
-
-  return <AppShell>{children}</AppShell>;
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <AppShell>{children}</AppShell>
+    </HydrationBoundary>
+  );
 }

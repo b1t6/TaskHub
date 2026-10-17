@@ -1,9 +1,10 @@
 "use client";
 
 import { DatePicker, Form, Input, Modal, Select, App as AntdApp } from "antd";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
-import { useState } from "react";
 import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/queries";
 import { PRIORITY_META, STATUS_META } from "@/components/ui/tags";
 import type { CreateTaskInput, ProjectDetail, TaskPriority } from "@/types";
 
@@ -29,32 +30,35 @@ export default function TaskFormModal({
   onCreated: () => void;
 }) {
   const { message } = AntdApp.useApp();
+  const queryClient = useQueryClient();
   const [form] = Form.useForm<TaskFormValues>();
-  const [loading, setLoading] = useState(false);
+
+  const createTask = useMutation({
+    mutationFn: (input: CreateTaskInput) => api.createTask(input),
+    onSuccess: () => {
+      message.success("任务已创建（状态：待办）");
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks(project.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.project(project.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities(project.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      form.resetFields();
+      onCreated();
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : "创建失败"),
+  });
 
   const handleOk = async () => {
     const values = await form.validateFields();
-    setLoading(true);
-    try {
-      const input: CreateTaskInput = {
-        projectId: project.id,
-        title: values.title,
-        description: values.description,
-        status: "TODO",
-        priority: values.priority,
-        dueDate: values.dueDate ? values.dueDate.toISOString() : null,
-        assigneeId: values.assigneeId ?? null,
-        labelIds: values.labelIds ?? [],
-      };
-      await api.createTask(input);
-      message.success("任务已创建（状态：待办）");
-      form.resetFields();
-      onCreated();
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "创建失败");
-    } finally {
-      setLoading(false);
-    }
+    createTask.mutate({
+      projectId: project.id,
+      title: values.title,
+      description: values.description,
+      status: "TODO",
+      priority: values.priority,
+      dueDate: values.dueDate ? values.dueDate.toISOString() : null,
+      assigneeId: values.assigneeId ?? null,
+      labelIds: values.labelIds ?? [],
+    });
   };
 
   return (
@@ -66,7 +70,7 @@ export default function TaskFormModal({
         form.resetFields();
         onClose();
       }}
-      confirmLoading={loading}
+      confirmLoading={createTask.isPending}
       okText="创建"
       cancelText="取消"
       destroyOnHidden
