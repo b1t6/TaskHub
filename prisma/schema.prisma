@@ -2,7 +2,9 @@
 // 文档: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // EdgeOne 运行时是 rhel-openssl-1.1.x，构建机默认只生成 3.0.x
+  binaryTargets = ["native", "rhel-openssl-1.1.x"]
 }
 
 datasource db {
