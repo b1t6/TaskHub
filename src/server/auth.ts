@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { db } from "@/lib/db";
 import type { User } from "@/types";
 import { HttpError } from "./errors";
@@ -83,8 +83,18 @@ export function toUser(user: {
   };
 }
 
+function tokenFromHeader(raw: string | null): string | undefined {
+  if (!raw) return undefined;
+  for (const part of raw.split(";")) {
+    const [name, ...rest] = part.trim().split("=");
+    if (name === COOKIE) return decodeURIComponent(rest.join("="));
+  }
+  return undefined;
+}
+
 export async function currentUser(): Promise<User | null> {
-  const token = (await cookies()).get(COOKIE)?.value;
+  const token =
+    (await cookies()).get(COOKIE)?.value ?? tokenFromHeader((await headers()).get("cookie"));
   const userId = readSession(token);
   if (!userId) return null;
   const user = await db.user.findUnique({ where: { id: userId }, select: userSelect });

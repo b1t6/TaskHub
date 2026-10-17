@@ -3,7 +3,7 @@
 import { Button, Card, Form, Input, App as AntdApp } from "antd";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
+import { postForm } from "@/lib/post-form";
 
 interface LoginForm {
   email: string;
@@ -29,18 +29,14 @@ export default function LoginPage() {
     return () => window.clearTimeout(timer);
   }, [phase]);
 
-  const onFinish = async (values: LoginForm) => {
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (error === "1") message.error("邮箱或密码错误");
+  }, [message]);
+
+  const onFinish = (values: LoginForm) => {
     setLoading(true);
-    try {
-      await api.login(values);
-      message.success("登录成功");
-      // 整页进入，避免复用未登录时缓存的「跳回登录页」结果
-      window.location.assign("/dashboard");
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "登录失败");
-    } finally {
-      setLoading(false);
-    }
+    postForm("/api/auth/login", { email: values.email, password: values.password });
   };
 
   return (

@@ -15,16 +15,31 @@ function sessionCookie(value: string, maxAge: number): string {
   ].join("; ");
 }
 
+function applySession(res: NextResponse, token: string | null) {
+  const value = token ?? "";
+  const maxAge = token ? SESSION_MAX_AGE : 0;
+  res.cookies.set("session", value, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge,
+    secure: true,
+  });
+  res.headers.append("Set-Cookie", sessionCookie(value, maxAge));
+  res.headers.set("Cache-Control", "private, no-store");
+  return res;
+}
+
+export function redirectWithSession(req: Request, path: string, token: string) {
+  const res = NextResponse.redirect(new URL(path, req.url), 302);
+  return applySession(res, token);
+}
+
 export function json<T>(data: T, status = 200, init?: { token?: string; clearSession?: boolean }) {
   const res = NextResponse.json(data, { status });
-  res.headers.set("Cache-Control", "no-store");
-  if (init?.token) {
-    // 同时写标准 Set-Cookie。EdgeOne 会丢掉 NextResponse.cookies，只保留响应头。
-    res.headers.append("Set-Cookie", sessionCookie(init.token, SESSION_MAX_AGE));
-  }
-  if (init?.clearSession) {
-    res.headers.append("Set-Cookie", sessionCookie("", 0));
-  }
+  res.headers.set("Cache-Control", "private, no-store");
+  if (init?.token) return applySession(res, init.token);
+  if (init?.clearSession) return applySession(res, null);
   return res;
 }
 

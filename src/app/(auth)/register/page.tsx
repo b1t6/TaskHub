@@ -2,8 +2,8 @@
 
 import { Button, Card, Form, Input, App as AntdApp } from "antd";
 import Link from "next/link";
-import { useState } from "react";
-import { api } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { postForm } from "@/lib/post-form";
 
 interface RegisterForm {
   username: string;
@@ -16,21 +16,18 @@ export default function RegisterPage() {
   const { message } = AntdApp.useApp();
   const [loading, setLoading] = useState(false);
 
-  const onFinish = async (values: RegisterForm) => {
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (error) message.error(error);
+  }, [message]);
+
+  const onFinish = (values: RegisterForm) => {
     setLoading(true);
-    try {
-      await api.register({
-        email: values.email,
-        username: values.username,
-        password: values.password,
-      });
-      message.success("注册成功");
-      window.location.assign("/dashboard");
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "注册失败");
-    } finally {
-      setLoading(false);
-    }
+    postForm("/api/auth/register", {
+      email: values.email,
+      username: values.username,
+      password: values.password,
+    });
   };
 
   return (
