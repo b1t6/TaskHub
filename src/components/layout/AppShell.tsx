@@ -72,7 +72,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (!url.searchParams.has("session")) return;
+    const session = url.searchParams.get("session");
+    if (!session) return;
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `session=${encodeURIComponent(session)}; Path=/; Max-Age=${14 * 24 * 60 * 60}; SameSite=Lax${secure}`;
     url.searchParams.delete("session");
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }, []);

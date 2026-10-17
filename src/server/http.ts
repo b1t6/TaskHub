@@ -47,10 +47,6 @@ function applySession(res: NextResponse, token: string | null, req?: Request) {
  * 只在当前站点用相对路径跳转，并把会话附在本次请求上。
  */
 export function htmlWithSession(_req: Request, path: string, token: string) {
-  const secure = process.env.NODE_ENV === "production";
-  const cookie =
-    `session=${encodeURIComponent(token)}; Path=/; Max-Age=${SESSION_MAX_AGE}; SameSite=Lax` +
-    (secure ? "; Secure" : "");
   const target = `${path}?session=${encodeURIComponent(token)}`;
   const html = `<!doctype html>
 <html lang="zh-CN">
@@ -58,7 +54,8 @@ export function htmlWithSession(_req: Request, path: string, token: string) {
 <body>
 <p>登录成功，正在进入…</p>
 <script>
-document.cookie = ${JSON.stringify(cookie)};
+var secure = location.protocol === "https:" ? "; Secure" : "";
+document.cookie = "session=" + encodeURIComponent(${JSON.stringify(token)}) + "; Path=/; Max-Age=${SESSION_MAX_AGE}; SameSite=Lax" + secure;
 location.replace(${JSON.stringify(target)});
 </script>
 </body>
