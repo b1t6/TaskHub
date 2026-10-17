@@ -20,11 +20,19 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
-  // 前后端分离强制约束：
-  // .tsx 文件属于前端层（页面/组件），禁止直接访问数据库或服务端模块，
-  // 必须通过 src/lib/api 契约层与后端交互
+  // 前后端分离：客户端组件禁止直接访问服务端模块
+  // Next.js 服务端入口（page/layout 等）允许调用 @/server
   {
     files: ["src/**/*.tsx"],
+    ignores: [
+      "src/app/**/page.tsx",
+      "src/app/**/layout.tsx",
+      "src/app/**/loading.tsx",
+      "src/app/**/template.tsx",
+      "src/app/**/error.tsx",
+      "src/app/**/not-found.tsx",
+      "src/app/**/default.tsx",
+    ],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -33,7 +41,7 @@ const eslintConfig = [
             {
               group: ["@prisma/client", "@/lib/db", "@/server", "@/server/**"],
               message:
-                "前后端分离约束：前端代码禁止直接访问数据库/服务端模块，请通过 @/lib/api 调用后端 API。",
+                "前后端分离约束：客户端组件禁止直接访问数据库/服务端模块，请通过 @/lib/api 调用后端 API。",
             },
           ],
         },

@@ -66,7 +66,7 @@ export default function ProjectClient({ projectId }: { projectId: string }) {
 
   const project = projectQuery.data ?? null;
   const me = meQuery.data ?? null;
-  const tasks = tasksQuery.data ?? [];
+  const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
   const activities = activitiesQuery.data ?? [];
 
   const invalidateProject = () => {

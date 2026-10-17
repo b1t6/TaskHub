@@ -68,7 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   });
 
   const user = meQuery.data ?? null;
-  const projects = projectsQuery.data ?? [];
+  const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
 
   useEffect(() => {
     for (const href of WORKSPACE_ROUTES) router.prefetch(href);

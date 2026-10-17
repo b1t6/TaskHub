@@ -1,7 +1,7 @@
 import { PrismaTiDBCloud } from "@tidbcloud/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
 
-function useTidbAdapter(url: string): boolean {
+function isTidbDatabaseUrl(url: string): boolean {
   if (process.env.TIDB_ADAPTER === "0") return false;
   if (process.env.TIDB_ADAPTER === "1") return true;
   try {
@@ -19,7 +19,7 @@ function createPrismaClient() {
   const log: Array<"warn" | "error"> = ["warn", "error"];
 
   // TiDB Cloud / Vercel：走 HTTPS Serverless Driver，避免连接数打满
-  if (url && useTidbAdapter(url)) {
+  if (url && isTidbDatabaseUrl(url)) {
     const adapter = new PrismaTiDBCloud({ url });
     return new PrismaClient({ adapter, log });
   }
